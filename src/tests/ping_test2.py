@@ -2,7 +2,7 @@ import sys
 import unittest
 
 
-sys.path.append("..")
+sys.path.append("../../..")
 from models import ICMPRequest
 from ping import ping
 from sockets import ICMPSocket

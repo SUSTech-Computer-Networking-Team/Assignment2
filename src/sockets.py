@@ -1,4 +1,4 @@
-
+from ctypes import c_uint32
 from struct import pack, unpack
 import platform as plt
 from models import ICMPReply, ICMPRequest
@@ -8,7 +8,6 @@ from exceptions import *
 
 
 class ICMPSocket:
-
     __slots__ = '_sock', '_address', '_privileged'
 
     _IP_VERSION = 4
@@ -77,24 +76,43 @@ class ICMPSocket:
             socket.IP_TTL,
             ttl)
 
-    def _checksum(self, data):
-        sum = 0
+    def _checksum(self, data: bytes):
+        """
+        Compute the checksum of an ICMP packet. Checksums are used to
+        verify the integrity of packets.
 
-        # TODO:
-        # Compute the checksum of an ICMP packet. Checksums are used to
-        # verify the integrity of packets.
-        #
-        # :type data: bytes
-        # :param data: The data you are going to send, calculate checksum
-        # according to this.
-        #
-        # :rtype: int
-        # :returns: checksum calculated from data
-        #
-        # Hint: if the length of data is even, add a b'\x00' to the end of data
-        # according to RFC
+        :type data: bytes
+        :param data: The data you are going to send, calculate checksum
+        according to this.
 
-        return sum
+        :rtype: int
+        :returns: checksum calculated from data
+
+        Hint: if the length of data is even, add a b'\x00' to the end of data
+        according to RFC
+        IP Header中的checksum只校验IP首部，不校验数据部分。 这部分由raw socket内部实现。
+        ICMP Header中的checksum校验ICMP首部和数据部分。这是我们实现的。
+        """
+        data = data.hex()
+        checksum = 0
+        for i in range(0, len(data), 4):
+            second = data[i + 2:i + 4]
+            byte = int(data[i:i + 2] +
+                       (second if second else b'00'), 16)  # 注意如果是最后一个字节，需要补低位的00。
+            checksum += byte
+            checksum = self.int32_as_2_int16(checksum)
+        return 0xffff ^ checksum
+
+    @staticmethod
+    def int32_as_2_int16(a):
+        """这是很有用的一个函数
+            用法1： 把 0x 12 34   拆解为 0x12与0x34,随后求和。
+            用法2：0b 1 0000 0000 0000 0000 进位溢出了，把1放到后面，使得它仍然是16位整数
+        """
+        return (a >> 16) + (a & 0xffff)
+
+    def send(self, request: ICMPRequest, ttl=64):
+        pass
 
     def _check_data(self, data, checksum):
 
@@ -128,7 +146,7 @@ class ICMPSocket:
         # This method returns the newly created ICMP header concatenated
         # to the payload passed in parameters.
         #
-		# tips: the 'checksum' in ICMP header needs to be calculated and updated
+        # tips: the 'checksum' in ICMP header needs to be calculated and updated
         # :rtype: bytes
         # :returns: an ICMP header+payload in bytes format
         return None
@@ -257,8 +275,8 @@ class ICMPSocket:
                     current_time=current_time)
 
                 if (reply and not request or
-                    reply and request.id == reply.id and
-                    request.sequence == reply.sequence):
+                        reply and request.id == reply.id and
+                        request.sequence == reply.sequence):
                     return reply
 
         except socket.timeout:
@@ -275,6 +293,3 @@ class ICMPSocket:
         if self._sock:
             self._sock.close()
             self._sock = None
-
-
-
