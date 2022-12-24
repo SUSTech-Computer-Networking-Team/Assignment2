@@ -115,24 +115,24 @@ class ICMPSocket:
         pass
 
     def _check_data(self, data, checksum):
+        """
+        Verify the given data with checksum of an ICMP packet. Checksums are used to
+        verify the integrity of packets.
 
-        # TODO:
-        # Verify the given data with checksum of an ICMP packet. Checksums are used to
-        # verify the integrity of packets.
-        #
-        # :type data: bytes
-        # :param data: The data you received, verify its correctness with checksum
-        #
-        # :type checksum: int
-        # :param checksum: The checksum you received, use it to verify data.
-        #
-        # :rtype: boolean
-        # :returns: whether the data matches the checksum
-        #
-        # Hint: if the length of data is even, add a b'\x00' to the end of data
-        # according to RFC
+        :type data: bytes
+        :param data: The data you received, verify its correctness with checksum
 
-        return False
+        :type checksum: int
+        :param checksum: The checksum you received, use it to verify data.
+
+        :rtype: boolean
+        :returns: whether the data matches the checksum
+
+        Hint: if the length of data is even, add a b'\x00' to the end of data
+        according to RFC
+        """
+        return self._checksum(data) == checksum
+
 
     def _create_packet(self, request: ICMPRequest):
         id = request.id
