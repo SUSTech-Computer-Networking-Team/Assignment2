@@ -1,3 +1,4 @@
+import struct
 from ctypes import c_uint32
 from struct import pack, unpack
 import platform as plt
@@ -114,7 +115,7 @@ class ICMPSocket:
     def send(self, request: ICMPRequest, ttl=64):
         pass
 
-    def _check_data(self, data, checksum):
+    def _check_data(self, data: bytes, checksum: int):
         """
         Verify the given data with checksum of an ICMP packet. Checksums are used to
         verify the integrity of packets.
@@ -133,23 +134,29 @@ class ICMPSocket:
         """
         return self._checksum(data) == checksum
 
-
     def _create_packet(self, request: ICMPRequest):
+        """
+        Build an ICMP packet from an ICMPRequest, you can get a sequence number and
+        a payload.
+        This method returns the newly created ICMP header concatenated
+        to the payload passed in parameters.
+        tips: the 'checksum' in ICMP header needs to be calculated and updated
+        :rtype: bytes
+        :returns: an ICMP header+payload in bytes format 需要返回bytes格式的数据。
+        """
         id = request.id
         sequence = request.sequence
         payload = request.payload
         checksum = 0
-        # TODO:
-        # Build an ICMP packet from an ICMPRequest, you can get a sequence number and
-        # a payload.
-        #
-        # This method returns the newly created ICMP header concatenated
-        # to the payload passed in parameters.
-        #
-        # tips: the 'checksum' in ICMP header needs to be calculated and updated
-        # :rtype: bytes
-        # :returns: an ICMP header+payload in bytes format
-        return None
+
+        # B是无符号byte(int8), H是无符号short(int16), h是有符号short。ns表示长度为n的字符串。
+        # ICMP报文格式是 Type, Code, Checksum, Identifier, Sequence Number, Data
+        pack_format = '!BBHHH' + str(len(payload)) + 's'
+        packet = struct.pack(pack_format, self._ICMP_ECHO_REQUEST, 0, checksum, id, sequence, payload)
+        checksum = self._checksum(packet)
+        # 重新打包，更新checksum
+        packet = struct.pack(pack_format, self._ICMP_ECHO_REQUEST, 0, checksum, id, sequence, payload)
+        return packet
 
     def _parse_reply(self, packet, source, current_time):
         sequence = 0
