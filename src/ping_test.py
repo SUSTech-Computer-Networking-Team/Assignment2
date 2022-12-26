@@ -1,9 +1,9 @@
 import unittest
 
 
-from models import ICMPRequest
 from ping import ping
-from src.sockets import ICMPSocket
+from sockets import ICMPSocket
+from models import ICMPRequest
 class PingTest(unittest.TestCase):
 	socket = None
 	@classmethod

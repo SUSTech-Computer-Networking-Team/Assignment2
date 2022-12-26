@@ -61,7 +61,7 @@ def tracert(address, id=None):
 if __name__ == "__main__":
     target = sys.argv[1]
     parser = argparse.ArgumentParser(description="tracert")
-    parser.add_argument('--i', type=int, default=None)
+    parser.add_argument('--i', type=int, default=None) #指定id值
     args = parser.parse_args(sys.argv[2:])
     hops = tracert(target,args.i)
     for hop in hops:
