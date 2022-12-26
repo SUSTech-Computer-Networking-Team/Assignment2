@@ -1,4 +1,4 @@
-from ctypes import c_uint32
+
 from struct import pack, unpack
 import platform as plt
 from models import ICMPReply, ICMPRequest
@@ -8,6 +8,7 @@ from exceptions import *
 
 
 class ICMPSocket:
+
     __slots__ = '_sock', '_address', '_privileged'
 
     _IP_VERSION = 4
@@ -76,63 +77,59 @@ class ICMPSocket:
             socket.IP_TTL,
             ttl)
 
-    def _checksum(self, data: bytes):
-        """
-        Compute the checksum of an ICMP packet. Checksums are used to
-        verify the integrity of packets.
+    def _checksum(self, data):
+        sum = 0
 
-        :type data: bytes
-        :param data: The data you are going to send, calculate checksum
-        according to this.
+        # TODO:
+        # Compute the checksum of an ICMP packet. Checksums are used to
+        # verify the integrity of packets.
+        #
+        # :type data: bytes
+        # :param data: The data you are going to send, calculate checksum
+        # according to this.
+        #
+        # :rtype: int
+        # :returns: checksum calculated from data
+        #
+        # Hint: if the length of data is odd, add a b'\x00' to the end of data
+        # according to RFC
 
-        :rtype: int
-        :returns: checksum calculated from data
+        l = len(data)
+        if(l % 2 != 0):
+            data += b'\x00'
+        for i in range(0, l, 2):
+            #if i == 2:
+            #    continue # skip checksum at inputing data
 
-        Hint: if the length of data is even, add a b'\x00' to the end of data
-        according to RFC
-        IP Header中的checksum只校验IP首部，不校验数据部分。 这部分由raw socket内部实现。
-        ICMP Header中的checksum校验ICMP首部和数据部分。这是我们实现的。
-        """
-        data = data.hex()
-        checksum = 0
-        for i in range(0, len(data), 4):
-            second = data[i + 2:i + 4]
-            byte = int(data[i:i + 2] +
-                       (second if second else b'00'), 16)  # 注意如果是最后一个字节，需要补低位的00。
-            checksum += byte
-            checksum = self.int32_as_2_int16(checksum)
-        return 0xffff ^ checksum
+            hi = ord(data[i : i + 1]) << 8
+            lo = ord(data[i + 1 : i + 2])
+            sum += hi + lo
+            #print(f'{hex(hi)} {hex(lo)} {hex(sum)}')
+        
+        while(sum > 0xffff):
+            sum = (sum & 0xffff) + (sum >> 16)
 
-    @staticmethod
-    def int32_as_2_int16(a):
-        """这是很有用的一个函数
-            用法1： 把 0x 12 34   拆解为 0x12与0x34,随后求和。
-            用法2：0b 1 0000 0000 0000 0000 进位溢出了，把1放到后面，使得它仍然是16位整数
-        """
-        return (a >> 16) + (a & 0xffff)
-
-    def send(self, request: ICMPRequest, ttl=64):
-        pass
+        return (~sum & 0xffff)
 
     def _check_data(self, data, checksum):
-        """
-        Verify the given data with checksum of an ICMP packet. Checksums are used to
-        verify the integrity of packets.
 
-        :type data: bytes
-        :param data: The data you received, verify its correctness with checksum
+        # TODO:
+        # Verify the given data with checksum of an ICMP packet. Checksums are used to
+        # verify the integrity of packets.
+        #
+        # :type data: bytes
+        # :param data: The data you received, verify its correctness with checksum
+        #
+        # :type checksum: int
+        # :param checksum: The checksum you received, use it to verify data.
+        #
+        # :rtype: boolean
+        # :returns: whether the data matches the checksum
+        #
+        # Hint: if the length of data is even, add a b'\x00' to the end of data
+        # according to RFC
 
-        :type checksum: int
-        :param checksum: The checksum you received, use it to verify data.
-
-        :rtype: boolean
-        :returns: whether the data matches the checksum
-
-        Hint: if the length of data is even, add a b'\x00' to the end of data
-        according to RFC
-        """
-        return self._checksum(data) == checksum
-
+        return checksum == self._checksum(data)
 
     def _create_packet(self, request: ICMPRequest):
         id = request.id
@@ -146,12 +143,28 @@ class ICMPSocket:
         # This method returns the newly created ICMP header concatenated
         # to the payload passed in parameters.
         #
-        # tips: the 'checksum' in ICMP header needs to be calculated and updated
+		# tips: the 'checksum' in ICMP header needs to be calculated and updated
         # :rtype: bytes
         # :returns: an ICMP header+payload in bytes format
-        return None
+
+        # id_hi = id >> 8
+        # id_lo = id & (0xff)
+        # seq_hi = sequence >> 8
+        # seq_lo = sequence & (0xff)
+
+        # raw = bytes([8, 0, 0, 0, id_hi, id_lo, seq_hi, seq_lo]) + payload
+        # checksum = self._checksum(raw)
+        
+        # return bytes([8,0]) + bytes([checksum >> 8, checksum & (0xff)]) + bytes([id_hi, id_lo, seq_hi, seq_hi]) + payload
+
+        type = 8
+        code = 0
+        raw = pack('!BBHHH', type, code, 0, id, sequence)
+        checksum = self._checksum(raw + payload)
+        return pack('!BBHHH', type, code, checksum, id, sequence) + payload
 
     def _parse_reply(self, packet, source, current_time):
+        id = 0
         sequence = 0
         type = 0
         code = 0
@@ -165,8 +178,34 @@ class ICMPSocket:
         #
         # :rtype: ICMPReply
         # :returns: an ICMPReply parsed from packet
+        ver = packet[0] >> 4
+        header_len = packet[0] & 0xf
+
+        icmp_data = packet[4 * header_len:]
+        header_line = unpack('!BBHHH', icmp_data[:8])
+        # print(header_line)
+
+        type = header_line[0]
+        code = header_line[1]
+        checksum = header_line[2]
+
+        #todo not check yet
+        check_data = pack('!BBH', type, code, 0) + icmp_data[4:]
+        if not self._check_data(check_data, checksum):
+            raise ICMPSocketError('Wrong Checksum')
+
+        id = header_line[3]
+        sequence = header_line[4]
+
+        # not check yet
+        if type == 3 or type == 11 or type == 12:
+            original_icmp = icmp_data[8 + header_len * 4:]
+            # print(original_icmp)
+            (id, sequence) = unpack('!HH', original_icmp[4:8])
+
         return ICMPReply(
             source=source,
+            # family=ver,
             id=id,
             sequence=sequence,
             type=type,
@@ -260,11 +299,13 @@ class ICMPSocket:
 
         try:
             while True:
-                response = self._sock.recvfrom(1024)
+                response = self._sock.recvfrom(1024) #如果阻塞，如何执行下面的超时语句？来源地在send的时候填写了？
                 current_time = time()
 
                 packet = response[0]
                 source = response[1][0]
+
+                # print(source)
 
                 if current_time > time_limit:
                     raise socket.timeout
@@ -275,8 +316,8 @@ class ICMPSocket:
                     current_time=current_time)
 
                 if (reply and not request or
-                        reply and request.id == reply.id and
-                        request.sequence == reply.sequence):
+                    reply and request.id == reply.id and
+                    request.sequence == reply.sequence):
                     return reply
 
         except socket.timeout:
@@ -293,3 +334,6 @@ class ICMPSocket:
         if self._sock:
             self._sock.close()
             self._sock = None
+
+
+

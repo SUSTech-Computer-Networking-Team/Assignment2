@@ -9,6 +9,7 @@ PING_INTERVAL = 0.05
 PING_TIMEOUT = 3
 
 
+# 串行而非流水，做了简化，send 和 receive Sockets里已经写好了
 def ping(address,n=4, payload=None,id=None):
 	if is_hostname(address):
 		address = resolve(address)[0]
@@ -39,7 +40,23 @@ def ping(address,n=4, payload=None,id=None):
 	#
 	# Hint: use ICMPSocket.send() to send packet and use ICMPSocket.receive() to receive
 	################################
+
+	# seq = 0?
+	# 不可达的地址 调用 raise_for_status? try catch 包围？
+	request = ICMPRequest(address, id, 0, payload, len(payload))
+	for i in range(n):
+		sock.send(request)
+		packets_sent += 1
+
+		temp_reply = sock.receive(request, PING_TIMEOUT)
+		if temp_reply:
+			rtts.append((temp_reply.time - request.time) * 1000)
+			reply = temp_reply
+		temp_reply = None
+		sleep(PING_INTERVAL)
+
 	if reply:
+		reply.raise_for_status()
 		return Host(
 			address=reply.source,
 			packets_sent=packets_sent,
@@ -49,10 +66,10 @@ def ping(address,n=4, payload=None,id=None):
 
 if __name__ == "__main__":
 	target = sys.argv[1]
-	parser = argparse.ArgumentParser(description="ping")
-	parser.add_argument('--n', type=int, default=4)
-	parser.add_argument('--p', type=str, default=None)
-	parser.add_argument('--i', type=int, default=None)
+	parser = argparse.ArgumentParser(description="ping") #域名解析已经写好了
+	parser.add_argument('--n', type=int, default=4) #发几个报文
+	parser.add_argument('--p', type=str, default=None) #payload 
+	parser.add_argument('--i', type=int, default=None) #id值
 	args = parser.parse_args(sys.argv[2:])
 	n = args.n
 	i = args.i
