@@ -299,13 +299,15 @@ class ICMPSocket:
 
         try:
             while True:
-                response = self._sock.recvfrom(1024)
+                print("ababa")
+                response = self._sock.recvfrom(1024) #如果阻塞，如何执行下面的超时语句？来源地在send的时候填写了？
+                print("ababa2")
                 current_time = time()
 
                 packet = response[0]
                 source = response[1][0]
 
-                # print(source)
+                print(source)
 
                 if current_time > time_limit:
                     raise socket.timeout

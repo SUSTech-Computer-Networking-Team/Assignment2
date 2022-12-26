@@ -18,6 +18,7 @@ def tracert(address, id=None):
     sock = ICMPSocket()
 
     id = id or unique_identifier()
+    payload = random_byte_message(56)
     ttl = 1
     host_reached = False
     hops = []
@@ -43,6 +44,20 @@ def tracert(address, id=None):
         # Hint: use ICMPSocket.send() to send packet and use ICMPSocket.receive() to receive
         #
         ################################
+        sock._set_ttl(ttl)
+        request = ICMPRequest(address, id, 0, ttl=ttl)
+        for i in range(PING_COUNT):
+            sock.send(request)
+            packets_sent += 1
+
+            temp_reply = sock.receive(request, timeout=PING_TIMEOUT)
+            if temp_reply:
+                rtts.append((temp_reply.time - request.time) * 1000)
+                reply = temp_reply
+                if reply.source == address:
+                    host_reached = True
+
+        # analyze the address of each hop from the received message?
 
         if reply:
             hop = Hop(
@@ -54,6 +69,7 @@ def tracert(address, id=None):
             hops.append(hop)
 
         ttl += 1
+        sleep(PING_INTERVAL)
 
     return hops
 
