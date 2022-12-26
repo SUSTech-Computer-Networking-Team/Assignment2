@@ -42,6 +42,7 @@ def ping(address,n=4, payload=None,id=None):
 	################################
 
 	# seq = 0?
+	# 不可达的地址 调用 raise_for_status? try catch 包围？
 	request = ICMPRequest(address, id, 0, payload, len(payload))
 	for i in range(n):
 		sock.send(request)
@@ -54,8 +55,8 @@ def ping(address,n=4, payload=None,id=None):
 		temp_reply = None
 		sleep(PING_INTERVAL)
 
-
 	if reply:
+		reply.raise_for_status()
 		return Host(
 			address=reply.source,
 			packets_sent=packets_sent,

@@ -44,13 +44,20 @@ def tracert(address, id=None):
         # Hint: use ICMPSocket.send() to send packet and use ICMPSocket.receive() to receive
         #
         ################################
-        sock._set_ttl(ttl)
+
+        # sock._set_ttl(ttl)
         request = ICMPRequest(address, id, 0, ttl=ttl)
         for i in range(PING_COUNT):
             sock.send(request)
             packets_sent += 1
 
-            temp_reply = sock.receive(request, timeout=PING_TIMEOUT)
+            temp_reply = None
+            try:
+                temp_reply = sock.receive(request, timeout=PING_TIMEOUT)
+            except TimeoutExceeded:
+                print(f"time out at TTL {ttl}")
+                continue
+
             if temp_reply:
                 rtts.append((temp_reply.time - request.time) * 1000)
                 reply = temp_reply
