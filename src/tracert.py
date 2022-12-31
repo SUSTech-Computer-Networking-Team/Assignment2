@@ -46,6 +46,7 @@ def tracert(address, id=None):
         ################################
 
         # sock._set_ttl(ttl)
+        # 如果不可达？ - get addrinfo failed
         request = ICMPRequest(address, id, 0, ttl=ttl)
         for i in range(PING_COUNT):
             sock.send(request)
@@ -77,6 +78,8 @@ def tracert(address, id=None):
 
         ttl += 1
         sleep(PING_INTERVAL)
+
+    # 如果没达到？
 
     return hops
 
